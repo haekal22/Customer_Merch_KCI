@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { 
   Search, 
   User, 
@@ -8,24 +9,25 @@ import {
   ChevronDown, 
   Minus, 
   Plus, 
-  Trash2 
+  Trash2,
+  Loader2 
 } from 'lucide-react';
 
 const CartPage = () => {
   const navigate = useNavigate();
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
-  // State Item Keranjang (Contoh Default Berisi Data)
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: 'T-Shirt Anak | Train Brothers (Sky Blue)',
-      size: 'M',
-      price: 100000,
-      quantity: 1,
-      image: '/assets/images/product-placeholder.jpg'
-    }
-  ]);
+  // State Data dari Database Backend
+  const [cartItems, setCartItems] = useState([]);
+  const [summary, setSummary] = useState({ total_items: 0, subtotal: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState(null);
+
+  // Helper Header Autentikasi JWT Token
+  const getAuthHeader = () => {
+    const token = localStorage.getItem('token') || localStorage.getItem('customer_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
   // Helper Format Rupiah
   const formatRupiah = (number) => {
@@ -36,27 +38,83 @@ const CartPage = () => {
     }).format(number || 0).replace('IDR', 'Rp');
   };
 
-  // Fungsi Tambah/Kurang Kuantitas
-  const updateQuantity = (id, delta) => {
-    setCartItems(prevItems =>
-      prevItems.map(item => {
-        if (item.id === id) {
-          const newQty = item.quantity + delta;
-          return newQty > 0 ? { ...item, quantity: newQty } : item;
-        }
-        return item;
-      })
+  // 1. FETCH DATA KERANJANG DARI DATABASE BACKEND
+  const fetchCartData = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('http://localhost:5001/api/customer/cart', {
+        headers: getAuthHeader()
+      });
+
+      const items = res.data.cart || [];
+      const sum = res.data.summary || {
+        total_items: items.reduce((acc, item) => acc + item.quantity, 0),
+        subtotal: items.reduce((acc, item) => acc + Number(item.subtotal || item.price * item.quantity), 0),
+        total: items.reduce((acc, item) => acc + Number(item.subtotal || item.price * item.quantity), 0)
+      };
+
+      setCartItems(items);
+      setSummary(sum);
+    } catch (error) {
+      console.error('Gagal memuat data keranjang dari DB:', error);
+      if (error.response && error.response.status === 401) {
+        setCartItems([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCartData();
+  }, []);
+
+  // 2. FUNGSI UPDATE KUANTITAS ITEM (PUT DATABASE)
+  const updateQuantity = async (cartId, action) => {
+    try {
+      setUpdatingId(cartId);
+      
+      await axios.put(`http://localhost:5001/api/customer/cart/${cartId}`, { action }, {
+        headers: getAuthHeader()
+      });
+
+      await fetchCartData();
+    } catch (error) {
+      console.error('Gagal memperbarui kuantitas:', error);
+      alert('Gagal memperbarui kuantitas produk.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // 3. FUNGSI HAPUS ITEM DARI KERANJANG (DELETE DATABASE)
+  const removeItem = async (cartId) => {
+    if (!confirm("Apakah kamu yakin ingin menghapus produk ini dari keranjang?")) return;
+
+    try {
+      setUpdatingId(cartId);
+
+      await axios.delete(`http://localhost:5001/api/customer/cart/${cartId}`, {
+        headers: getAuthHeader()
+      });
+
+      await fetchCartData();
+    } catch (error) {
+      console.error('Gagal menghapus item dari keranjang:', error);
+      alert('Gagal menghapus produk dari keranjang.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center text-gray-500 gap-2 font-sans">
+        <Loader2 className="animate-spin text-red-600" size={28} />
+        <span className="text-sm font-semibold">Memuat Keranjang Belanja...</span>
+      </div>
     );
-  };
-
-  // Fungsi Hapus Produk dari Keranjang
-  const removeItem = (id) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== id));
-  };
-
-  // Hitung Total Belanja
-  const totalItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const totalPrice = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-800 flex flex-col w-full">
@@ -115,13 +173,13 @@ const CartPage = () => {
           </div>
 
           <div className="flex items-center gap-6 text-gray-800">
-            <a href="/auth" className="hover:text-red-600"><User size={26} /></a>
-            <a href="#wishlist" className="hover:text-red-600 relative"><Heart size={26} /></a>
+            <Link to="/auth" className="hover:text-red-600"><User size={26} /></Link>
+            <Link to="/wishlist" className="hover:text-red-600 relative"><Heart size={26} /></Link>
             <Link to="/cart" className="text-red-600 relative">
               <ShoppingBag size={26} />
-              {totalItemsCount > 0 && (
+              {summary.total_items > 0 && (
                 <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {totalItemsCount}
+                  {summary.total_items}
                 </span>
               )}
             </Link>
@@ -143,9 +201,8 @@ const CartPage = () => {
       <main className="flex-1 w-full px-8 md:px-12 py-6">
         {cartItems.length === 0 ? (
           
-          /* KONDISI 1: KERANJANG KOSONG (FOTO 1) */
+          /* KONDISI 1: KERANJANG KOSONG */
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            {/* Circle Icon Basket */}
             <div className="w-28 h-28 bg-gray-200 rounded-full flex items-center justify-center mb-6 text-gray-600">
               <ShoppingBag size={48} strokeWidth={1.5} />
             </div>
@@ -163,7 +220,7 @@ const CartPage = () => {
 
         ) : (
 
-          /* KONDISI 2: KERANJANG BERISI PRODUK (FOTO 2) */
+          /* KONDISI 2: KERANJANG BERISI PRODUK DARI DATABASE */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
             
             {/* TABEL DAFTAR ITEM (8 KOLOM) */}
@@ -178,55 +235,74 @@ const CartPage = () => {
 
               {/* Baris Daftar Item */}
               <div className="divide-y divide-gray-200 border-b border-gray-200 pb-6">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="grid grid-cols-12 items-center py-4">
-                    
-                    {/* Gambar & Nama Produk */}
-                    <div className="col-span-6 flex gap-4 items-center">
-                      <div className="w-20 h-20 bg-[#F3F4F6] rounded-md p-2 shrink-0 flex items-center justify-center">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
-                      </div>
-                      <div>
-                        <h3 className="text-xs font-bold text-gray-900 leading-snug">{item.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1 font-medium">Ukuran : {item.size}</p>
-                      </div>
-                    </div>
+                {cartItems.map((item) => {
+                  const isUpdating = updatingId === item.cart_id;
 
-                    {/* Counter Kuantitas */}
-                    <div className="col-span-3 flex justify-center">
-                      <div className="flex items-center border border-gray-300 rounded-lg px-2 py-1 gap-3">
+                  return (
+                    <div key={item.cart_id} className="grid grid-cols-12 items-center py-4">
+                      
+                      {/* Gambar & Nama Produk */}
+                      <div className="col-span-6 flex gap-4 items-center">
+                        <div className="w-20 h-20 bg-[#F3F4F6] rounded-md p-2 shrink-0 flex items-center justify-center">
+                          <img 
+                            src={item.variant_image || item.product_image || '/assets/images/product-placeholder.jpg'} 
+                            alt={item.product_name} 
+                            className="w-full h-full object-contain" 
+                          />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-gray-900 leading-snug">{item.product_name}</h3>
+                          <div className="text-xs text-gray-500 mt-1 font-medium space-y-0.5">
+                            {item.color_name && <p>Warna : {item.color_name}</p>}
+                            {item.size && <p>Ukuran : {item.size}</p>}
+                          </div>
+                          <p className="text-xs font-extrabold text-[#E5231B] mt-1">{formatRupiah(item.price)}</p>
+                        </div>
+                      </div>
+
+                      {/* Counter Kuantitas */}
+                      <div className="col-span-3 flex justify-center">
+                        <div className="flex items-center border border-gray-300 rounded-lg px-2 py-1 gap-3">
+                          <button 
+                            onClick={() => updateQuantity(item.cart_id, 'decrease')} 
+                            disabled={isUpdating}
+                            className="text-gray-600 hover:text-black cursor-pointer disabled:opacity-50"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          
+                          <span className="text-xs font-bold text-gray-900 w-4 text-center">
+                            {isUpdating ? <Loader2 size={12} className="animate-spin mx-auto" /> : item.quantity}
+                          </span>
+
+                          <button 
+                            onClick={() => updateQuantity(item.cart_id, 'increase')} 
+                            disabled={isUpdating}
+                            className="text-gray-600 hover:text-black cursor-pointer disabled:opacity-50"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Subtotal & Hapus Icon */}
+                      <div className="col-span-3 flex items-center justify-end gap-4">
+                        <span className="text-xs font-extrabold text-gray-900">
+                          {formatRupiah(item.subtotal || item.price * item.quantity)}
+                        </span>
                         <button 
-                          onClick={() => updateQuantity(item.id, -1)} 
-                          className="text-gray-600 hover:text-black cursor-pointer"
+                          onClick={() => removeItem(item.cart_id)} 
+                          disabled={isUpdating}
+                          className="text-gray-800 hover:text-red-600 transition cursor-pointer disabled:opacity-50"
+                          title="Hapus dari keranjang"
                         >
-                          <Minus size={12} />
-                        </button>
-                        <span className="text-xs font-bold text-gray-900 w-4 text-center">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, 1)} 
-                          className="text-gray-600 hover:text-black cursor-pointer"
-                        >
-                          <Plus size={12} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
-                    </div>
 
-                    {/* Subtotal & Hapus Icon */}
-                    <div className="col-span-3 flex items-center justify-end gap-4">
-                      <span className="text-xs font-extrabold text-gray-900">
-                        {formatRupiah(item.price * item.quantity)}
-                      </span>
-                      <button 
-                        onClick={() => removeItem(item.id)} 
-                        className="text-gray-800 hover:text-red-600 transition cursor-pointer"
-                        title="Hapus dari keranjang"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
             </div>
@@ -236,18 +312,18 @@ const CartPage = () => {
               <h3 className="text-sm font-bold text-gray-900">Ringkasan Belanja</h3>
 
               <div className="flex justify-between items-center text-xs text-gray-700 border-b border-gray-200 pb-3">
-                <span>Subtotal ({totalItemsCount} Barang)</span>
-                <span className="font-semibold">{formatRupiah(totalPrice)}</span>
+                <span>Subtotal ({summary.total_items} Barang)</span>
+                <span className="font-semibold">{formatRupiah(summary.subtotal)}</span>
               </div>
 
               <div className="flex justify-between items-center text-sm font-extrabold text-gray-900 pt-1">
                 <span>Total</span>
-                <span>{formatRupiah(totalPrice)}</span>
+                <span>{formatRupiah(summary.total)}</span>
               </div>
 
               <button 
                 onClick={() => navigate('/checkout')}
-                className="w-full bg-[#334155] hover:bg-slate-800 text-white font-bold text-xs py-3.5 rounded-lg transition shadow cursor-pointer text-center block"
+                className="w-full bg-[#334155] hover:bg-slate-800 text-white font-bold text-xs py-3.5 rounded-lg transition shadow cursor-pointer text-center block uppercase tracking-wider"
               >
                 Checkout
               </button>
