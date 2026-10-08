@@ -1,0 +1,26 @@
+{
+  "name": "customer_merch_kci",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install:all": "npm install --prefix customer-merch-frontend && npm install --prefix customer-merch-backend",
+    "dev": "concurrently \"npm run dev --prefix customer-merch-frontend\" \"npm run dev --prefix customer-merch-backend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haekal22/Customer_Merch_KCI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/haekal22/Customer_Merch_KCI/issues"
+  },
+  "homepage": "https://github.com/haekal22/Customer_Merch_KCI#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

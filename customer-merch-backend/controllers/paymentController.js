@@ -21,6 +21,41 @@ function finpayClient() {
 const isPaidStatus = (s) => String(s || '').toUpperCase() === 'PAID';
 const PAID_STATUSES = ['paid', 'Sudah Dibayar', 'completed'];
 
+// -----------------------------------------------------------------------------
+// HELPER: Pengurangan Stok di Tabel Products
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// HELPER: Pengurangan Stok di Tabel Products
+// -----------------------------------------------------------------------------
+async function updateProductStock(orderCode) {
+  try {
+    // Ambil product_id dari tabel product_variants
+    const itemsQuery = `
+      SELECT pv.product_id, oi.quantity 
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      JOIN product_variants pv ON oi.product_variant_id = pv.id
+      WHERE o.order_code = $1;
+    `;
+    const itemsRes = await db.query(itemsQuery, [orderCode]);
+
+    // Kurangi stok di tabel products
+    for (const item of itemsRes.rows) {
+      if (item.product_id) {
+        await db.query(
+          `UPDATE products 
+           SET stock = GREATEST(0, stock - $1) 
+           WHERE id = $2`,
+          [item.quantity, item.product_id]
+        );
+      }
+    }
+    console.log(`✅ Stok di tabel 'products' berhasil dikurangi untuk Order: ${orderCode}`);
+  } catch (err) {
+    console.error(`❌ Gagal mengurangi stok di tabel 'products':`, err);
+  }
+}
+
 async function fetchFinpayStatus(orderCode) {
   const { data } = await finpayClient().get(
     `/pg/payment/card/check/${encodeURIComponent(orderCode)}`
@@ -29,10 +64,16 @@ async function fetchFinpayStatus(orderCode) {
 }
 
 async function markPaid(orderCode) {
-  await db.query(
-    "UPDATE orders SET status = 'paid' WHERE order_code = $1 AND status <> ALL($2)",
+  // Update status order dan kurangi stok produk secara bersamaan
+  const result = await db.query(
+    "UPDATE orders SET status = 'paid' WHERE order_code = $1 AND status <> ALL($2) RETURNING id",
     [orderCode, PAID_STATUSES]
   );
+
+  // Jika status order berhasil di-update (belum pernah paid sebelumnya), kurangi stok
+  if (result.rows.length > 0) {
+    await updateProductStock(orderCode);
+  }
 }
 
 // -----------------------------------------------------------------------------
