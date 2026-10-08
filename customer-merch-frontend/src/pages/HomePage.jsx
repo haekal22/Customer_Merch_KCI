@@ -14,13 +14,38 @@ import {
 } from 'lucide-react';
 
 const HomePage = () => {
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'Anak-anak' | 'Dewasa' | null
+  const [dropdownProducts, setDropdownProducts] = useState([]);
+  const [dropdownLoading, setDropdownLoading] = useState(false);
+
   const [newProducts, setNewProducts] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [wishlist, setWishlist] = useState([]); // Array ID produk yang di-wishlist
+  const [wishlist, setWishlist] = useState([]);
 
-  // Helper Format Harga Rupiah & Rentang Harga (Range)
+  // Fetch Produk Berdasarkan Target Segmen saat Hover (Max 8 Produk Terbaru)
+  const handleMouseEnter = async (segment) => {
+    setActiveDropdown(segment);
+    try {
+      setDropdownLoading(true);
+      // Panggil endpoint produk dengan filter segment dan diurutkan terbaru (sort=latest)
+      const res = await axios.get(`http://localhost:5001/api/customer/products?segment=${segment}&sort=latest`);
+      const allProducts = res.data.products || res.data || [];
+      // Batasi maksimal 8 produk terbaru
+      setDropdownProducts(allProducts.slice(0, 8));
+    } catch (error) {
+      console.error("Gagal memuat produk dropdown:", error);
+    } finally {
+      setDropdownLoading(false);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setActiveDropdown(null);
+    setDropdownProducts([]);
+  };
+
+  // Helper Format Harga Rupiah & Rentang Harga
   const formatPriceRange = (price, minPrice, maxPrice) => {
     const min = Number(minPrice || price || 0);
     const max = Number(maxPrice || price || 0);
@@ -37,7 +62,7 @@ const HomePage = () => {
     return formatNum(min || price);
   };
 
-  // Toggle Item Wishlist (Fitur Tombol Love)
+  // Toggle Item Wishlist
   const toggleWishlist = (productId, e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -48,21 +73,17 @@ const HomePage = () => {
     }
   };
 
-  // Fetch Produk Beranda dari Backend Customer
+  // Fetch Produk Beranda dari Backend
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
         const response = await axios.get('http://localhost:5001/api/customer/products/home');
-        
-        console.log("Data Beranda dari Backend Customer:", response.data);
 
         const latest = response.data.latest_products || [];
         const best = response.data.best_sellers || [];
 
-        // Helper Normalisasi Data
         const normalize = (items) => items.map(p => {
-          // Jika tidak ada varian warna terpisah, default minimal 1 varian
           const rawVariantCount = Number(p.color_variant_count || p.variant_count || 1);
           const variantCount = rawVariantCount === 0 ? 1 : rawVariantCount;
 
@@ -97,51 +118,94 @@ const HomePage = () => {
       {/* 1. MAIN HEADER NAVIGATION */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 w-full shadow-sm">
         <div className="w-full px-8 md:px-12 py-5 md:py-6 flex items-center justify-between gap-10">
-          {/* Logo */}
           <a href="/" className="shrink-0">
             <img src="/assets/images/logo-cmerch.svg" alt="C-Merch" className="h-10 md:h-12 w-auto object-contain" />
           </a>
 
-          {/* Navigation Links */}
           <nav className="flex items-center gap-8 font-bold text-sm md:text-base uppercase tracking-wide text-gray-800">
             <a href="/" className="text-red-600 border-b-2 border-red-600 pb-1">Beranda</a>
             
+            {/* NAV ANAK - ANAK DENGAN DROPDOWN FOTO PRODUK */}
             <div 
-              className="relative py-1 cursor-pointer group"
-              onMouseEnter={() => setIsCategoryOpen(true)}
-              onMouseLeave={() => setIsCategoryOpen(false)}
+              className="relative py-1 cursor-pointer"
+              onMouseEnter={() => handleMouseEnter('Anak-anak')}
+              onMouseLeave={handleMouseLeave}
             >
-              <button className="flex items-center gap-1.5 text-gray-800 hover:text-red-600 font-bold">
+              <a href="/products?segment=Anak-anak" className="flex items-center gap-1.5 text-gray-800 hover:text-red-600 font-bold">
                 Anak - Anak <ChevronDown size={16} />
-              </button>
+              </a>
 
-              {/* Mega Menu Dropdown */}
-              {isCategoryOpen && (
-                <div className="absolute top-full left-0 w-[500px] bg-white border border-gray-200 shadow-xl rounded-2xl p-6 grid grid-cols-2 gap-6 text-left normal-case z-50">
-                  <div>
-                    <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Anak-Anak</h4>
-                    <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#anak-kaos" className="hover:text-red-600">Pakaian & Kaos</a></li>
-                      <li><a href="#anak-topi" className="hover:text-red-600">Topi & Aksesoris</a></li>
-                      <li><a href="#anak-mainan" className="hover:text-red-600">Mainan & Miniatur</a></li>
-                      <li><a href="#anak-sekolah" className="hover:text-red-600">Perlengkapan Sekolah</a></li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Dewasa</h4>
-                    <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#dewasa-kaos" className="hover:text-red-600">T-Shirt & Outerwear</a></li>
-                      <li><a href="#dewasa-tas" className="hover:text-red-600">Tas & Pouch</a></li>
-                      <li><a href="#dewasa-tumbler" className="hover:text-red-600">Botol & Tumbler</a></li>
-                      <li><a href="#dewasa-e-money" className="hover:text-red-600">Kartu E-Money</a></li>
-                    </ul>
-                  </div>
+              {activeDropdown === 'Anak-anak' && (
+                <div className="absolute top-full left-[-100px] w-[750px] bg-white border border-gray-200 shadow-2xl rounded-2xl p-6 text-left normal-case z-50">
+                  <h4 className="font-extrabold text-sm text-gray-900 mb-4 uppercase tracking-wider">Produk Terbaru Anak-Anak</h4>
+                  {dropdownLoading ? (
+                    <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
+                      <Loader2 className="animate-spin" size={18} />
+                      <span className="text-xs">Memuat produk...</span>
+                    </div>
+                  ) : dropdownProducts.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-6 text-center">Belum ada produk tersedia untuk segmen ini.</p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-4">
+                      {dropdownProducts.map((p) => (
+                        <a 
+                          key={p.id} 
+                          href={`/products/${p.id}`}
+                          className="group flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition border border-transparent hover:border-gray-100"
+                        >
+                          <div className="w-20 h-20 bg-gray-100 rounded-lg p-2 flex items-center justify-center mb-2 overflow-hidden">
+                            <img src={p.image_url || '/assets/images/product-placeholder.jpg'} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition" />
+                          </div>
+                          <span className="text-xs font-bold text-gray-800 text-center line-clamp-2 group-hover:text-red-600">{p.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <a href="#dewasa" className="hover:text-red-600">Dewasa</a>
-            <a href="#semua-produk" className="hover:text-red-600">Semua Produk</a>
+            {/* NAV DEWASA DENGAN DROPDOWN FOTO PRODUK */}
+            <div 
+              className="relative py-1 cursor-pointer"
+              onMouseEnter={() => handleMouseEnter('Dewasa')}
+              onMouseLeave={handleMouseLeave}
+            >
+              <a href="/products?segment=Dewasa" className="flex items-center gap-1.5 text-gray-800 hover:text-red-600 font-bold">
+                Dewasa <ChevronDown size={16} />
+              </a>
+
+              {activeDropdown === 'Dewasa' && (
+                <div className="absolute top-full left-[-150px] w-[750px] bg-white border border-gray-200 shadow-2xl rounded-2xl p-6 text-left normal-case z-50">
+                  <h4 className="font-extrabold text-sm text-gray-900 mb-4 uppercase tracking-wider">Produk Terbaru Dewasa</h4>
+                  {dropdownLoading ? (
+                    <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
+                      <Loader2 className="animate-spin" size={18} />
+                      <span className="text-xs">Memuat produk...</span>
+                    </div>
+                  ) : dropdownProducts.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-6 text-center">Belum ada produk tersedia untuk segmen ini.</p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-4">
+                      {dropdownProducts.map((p) => (
+                        <a 
+                          key={p.id} 
+                          href={`/products/${p.id}`}
+                          className="group flex flex-col items-center p-2 rounded-lg hover:bg-gray-50 transition border border-transparent hover:border-gray-100"
+                        >
+                          <div className="w-20 h-20 bg-gray-100 rounded-lg p-2 flex items-center justify-center mb-2 overflow-hidden">
+                            <img src={p.image_url || '/assets/images/product-placeholder.jpg'} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition" />
+                          </div>
+                          <span className="text-xs font-bold text-gray-800 text-center line-clamp-2 group-hover:text-red-600">{p.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <a href="/products" className="hover:text-red-600">Semua Produk</a>
           </nav>
 
           {/* Search Bar */}
@@ -154,7 +218,6 @@ const HomePage = () => {
             <Search className="absolute right-4 top-4 text-gray-400" size={18} />
           </div>
 
-          {/* Action Icons */}
           <div className="flex items-center gap-6 text-gray-800">
             <a href="/auth" className="hover:text-red-600"><User size={26} /></a>
             <a href="#wishlist" className="hover:text-red-600 relative">
@@ -176,22 +239,17 @@ const HomePage = () => {
       {/* 2. HERO BANNER UTAMA */}
       <section className="relative w-full bg-gray-100 pt-[95px] md:pt-[105px]">
         <div className="w-full relative flex items-center justify-center">
-          <img 
-            src="/assets/images/home.svg" 
-            alt="Buah Tangan Perjalanan" 
-            className="w-full h-auto block"
-          />
+          <img src="/assets/images/home.svg" alt="Buah Tangan Perjalanan" className="w-full h-auto block" />
           
-          {/* Overlay Content Centered */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pt-36 md:pt-52 lg:pt-64 z-10 text-center px-4">
             <h2 className="text-2xl md:text-4xl lg:text-[40px] font-extrabold tracking-tight mb-4 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
               #BuahTanganPerjalanan
             </h2>
 
             <div className="flex flex-row items-center justify-center gap-4 md:gap-6">
-              <button className="bg-[#E5231B] hover:bg-red-700 text-white text-sm md:text-base lg:text-lg font-extrabold py-3.5 px-8 md:py-4 md:px-10 rounded-full shadow-lg transition cursor-pointer tracking-wide">
+              <a href="/products" className="bg-[#E5231B] hover:bg-red-700 text-white text-sm md:text-base lg:text-lg font-extrabold py-3.5 px-8 md:py-4 md:px-10 rounded-full shadow-lg transition cursor-pointer tracking-wide inline-block">
                 Belanja Sekarang
-              </button>
+              </a>
               <button className="bg-[#E5231B] hover:bg-red-700 text-white text-xs md:text-base lg:text-lg font-extrabold py-3.5 px-8 md:py-4 md:px-10 rounded-full shadow-lg transition cursor-pointer tracking-wide">
                 Cari Store Terdekat
               </button>
@@ -204,7 +262,7 @@ const HomePage = () => {
       <section className="w-full px-4 md:px-8 py-10">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-extrabold text-gray-900 tracking-tight uppercase">PRODUK TERBARU</h3>
-          <a href="#semua-terbaru" className="text-xs font-semibold text-gray-500 hover:text-red-600 flex items-center gap-1">
+          <a href="/products" className="text-xs font-semibold text-gray-500 hover:text-red-600 flex items-center gap-1">
             Lihat Semua <ChevronRight size={14} />
           </a>
         </div>
@@ -219,46 +277,26 @@ const HomePage = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-5">
             {newProducts.map((p) => (
-              <div key={p.id} className="group relative rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between">
-                
-                {/* Image Container dengan Badge Rating & Heart Wishlist */}
+              <div key={p.id} onClick={() => window.location.href = `/products/${p.id}`} className="group relative rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between cursor-pointer">
                 <div className="relative aspect-square bg-[#F3F4F6] p-4 flex items-center justify-center overflow-hidden">
-                  
-                  {/* Badge Rating ⭐ 5.0 */}
                   <div className="absolute top-2.5 left-2.5 bg-gray-200/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-bold text-gray-700 z-10 shadow-sm">
                     <Star size={11} className="fill-amber-400 text-amber-400" />
                     <span>{p.rating}</span>
                   </div>
 
-                  {/* Tombol Wishlist / Heart */}
-                  <button 
-                    onClick={(e) => toggleWishlist(p.id, e)}
-                    className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm z-10 transition transform active:scale-95 cursor-pointer"
-                  >
-                    <Heart 
-                      size={14} 
-                      className={wishlist.includes(p.id) ? "fill-red-600 text-red-600" : "text-gray-600 hover:text-red-600"} 
-                    />
+                  <button onClick={(e) => toggleWishlist(p.id, e)} className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm z-10 transition transform active:scale-95 cursor-pointer">
+                    <Heart size={14} className={wishlist.includes(p.id) ? "fill-red-600 text-red-600" : "text-gray-600 hover:text-red-600"} />
                   </button>
 
-                  <img 
-                    src={p.image_url} 
-                    alt={p.name} 
-                    className="w-full h-full object-contain group-hover:scale-105 transition duration-300" 
-                  />
+                  <img src={p.image_url} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition duration-300" />
                 </div>
 
-                {/* Info Detail Produk */}
                 <div className="p-3.5 flex flex-col justify-between flex-grow">
                   <div>
                     <h4 className="text-xs font-bold text-gray-900 line-clamp-1 mb-1">{p.name}</h4>
-                    <p className="text-xs font-bold text-[#E5231B] mb-2">
-                      {formatPriceRange(p.price, p.min_price, p.max_price)}
-                    </p>
+                    <p className="text-xs font-bold text-[#E5231B] mb-2">{formatPriceRange(p.price, p.min_price, p.max_price)}</p>
                   </div>
-                  <p className="text-[11px] font-medium text-gray-400">
-                    {p.variantCount} {p.variantCount > 1 ? 'varians' : 'varian'}
-                  </p>
+                  <p className="text-[11px] font-medium text-gray-400">{p.variantCount} varian</p>
                 </div>
               </div>
             ))}
@@ -266,11 +304,11 @@ const HomePage = () => {
         )}
       </section>
 
-      {/* 4. BEST SELLER (TAMPILAN NAVY SLATE SESUAI ACUAN FOTO 2) */}
+      {/* 4. BEST SELLER */}
       <section className="w-full px-4 md:px-8 pb-10">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-extrabold text-gray-900 tracking-tight uppercase">BEST SELLER</h3>
-          <a href="#semua-bestseller" className="text-xs font-semibold text-gray-500 hover:text-red-600 flex items-center gap-1">
+          <a href="/products" className="text-xs font-semibold text-gray-500 hover:text-red-600 flex items-center gap-1">
             Lihat Semua <ChevronRight size={14} />
           </a>
         </div>
@@ -285,46 +323,26 @@ const HomePage = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-5">
             {bestSellers.map((p) => (
-              <div key={p.id} className="group relative rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between">
-                
-                {/* Image Container dengan Badge Rating & Heart Wishlist */}
+              <div key={p.id} onClick={() => window.location.href = `/products/${p.id}`} className="group relative rounded-xl overflow-hidden bg-white border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between cursor-pointer">
                 <div className="relative aspect-square bg-[#F8F9FA] p-4 flex items-center justify-center overflow-hidden">
-                  
-                  {/* Badge Rating ⭐ 5.0 */}
                   <div className="absolute top-2.5 left-2.5 bg-gray-200/80 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px] font-bold text-gray-700 z-10 shadow-sm">
                     <Star size={11} className="fill-amber-400 text-amber-400" />
                     <span>{p.rating}</span>
                   </div>
 
-                  {/* Tombol Wishlist / Heart */}
-                  <button 
-                    onClick={(e) => toggleWishlist(p.id, e)}
-                    className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm z-10 transition transform active:scale-95 cursor-pointer"
-                  >
-                    <Heart 
-                      size={14} 
-                      className={wishlist.includes(p.id) ? "fill-red-600 text-red-600" : "text-gray-600 hover:text-red-600"} 
-                    />
+                  <button onClick={(e) => toggleWishlist(p.id, e)} className="absolute top-2.5 right-2.5 w-7 h-7 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm z-10 transition transform active:scale-95 cursor-pointer">
+                    <Heart size={14} className={wishlist.includes(p.id) ? "fill-red-600 text-red-600" : "text-gray-600 hover:text-red-600"} />
                   </button>
 
-                  <img 
-                    src={p.image_url} 
-                    alt={p.name} 
-                    className="w-full h-full object-contain group-hover:scale-105 transition duration-300" 
-                  />
+                  <img src={p.image_url} alt={p.name} className="w-full h-full object-contain group-hover:scale-105 transition duration-300" />
                 </div>
 
-                {/* Info Detail Produk versi Dark Navy Slate */}
                 <div className="p-3.5 bg-[#1E293B] text-white flex flex-col justify-between flex-grow">
                   <div>
                     <h4 className="text-xs font-bold line-clamp-1 mb-1 text-white">{p.name}</h4>
-                    <p className="text-xs font-bold text-gray-100 mb-2">
-                      {formatPriceRange(p.price, p.min_price, p.max_price)}
-                    </p>
+                    <p className="text-xs font-bold text-gray-100 mb-2">{formatPriceRange(p.price, p.min_price, p.max_price)}</p>
                   </div>
-                  <p className="text-[11px] font-normal text-gray-300">
-                    {p.variantCount} {p.variantCount > 1 ? 'varians' : 'varian'}
-                  </p>
+                  <p className="text-[11px] font-normal text-gray-300">{p.variantCount} varian</p>
                 </div>
               </div>
             ))}
@@ -334,54 +352,32 @@ const HomePage = () => {
 
       {/* 5. BANNER KATEGORI ANAK-ANAK */}
       <section className="w-full pb-10">
-        <div className="w-full">
-          <img 
-            src="/assets/images/anakanak.svg" 
-            alt="Kategori Anak-Anak" 
-            className="w-full h-auto block"
-          />
-        </div>
+        <a href="/products?segment=Anak-anak" className="w-full block">
+          <img src="/assets/images/anakanak.svg" alt="Kategori Anak-Anak" className="w-full h-auto block hover:opacity-95 transition" />
+        </a>
       </section>
 
       {/* 6. BANNER KATEGORI DEWASA */}
       <section className="w-full pb-10">
-        <div className="w-full">
-          <img 
-            src="/assets/images/dewasa.svg" 
-            alt="Kategori Dewasa" 
-            className="w-full h-auto block"
-          />
-        </div>
+        <a href="/products?segment=Dewasa" className="w-full block">
+          <img src="/assets/images/dewasa.svg" alt="Kategori Dewasa" className="w-full h-auto block hover:opacity-95 transition" />
+        </a>
       </section>
 
-      {/* 7. LOKASI TOKO / KUNJUNGI KAMI */}
+      {/* 7. LOKASI TOKO */}
       <section className="w-full pb-10">
         <div className="relative w-full overflow-hidden flex items-center justify-start">
-          <img 
-            src="/assets/images/kunjungi.svg" 
-            alt="Peta Lokasi Stasiun Kunjungi Kami" 
-            className="w-full h-auto block object-cover"
-          />
-
-          <img 
-            src="/assets/images/blur.svg" 
-            alt="" 
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none z-5 blur-lg backdrop-blur-md opacity-90"
-          />
-
+          <img src="/assets/images/kunjungi.svg" alt="Peta Lokasi" className="w-full h-auto block object-cover" />
+          <img src="/assets/images/blur.svg" alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none z-5 blur-lg backdrop-blur-md opacity-90" />
           <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-12 text-white z-10 bg-black/10">
-            <h3 className="text-xl md:text-3xl font-extrabold tracking-wide mb-2 uppercase drop-shadow-md">
-              KUNJUNGI KAMI
-            </h3>
+            <h3 className="text-xl md:text-3xl font-extrabold tracking-wide mb-2 uppercase drop-shadow-md">KUNJUNGI KAMI</h3>
             <p className="text-xs md:text-sm max-w-md font-light text-gray-100 mb-6 leading-relaxed drop-shadow-md">
               Rasakan kualitasnya secara langsung. Temukan gerai C-Merch terdekat di pusat-pusat transportasi utama.
             </p>
-
             <div className="flex items-center gap-3">
               <button className="border border-white/80 bg-black/30 hover:bg-white/20 backdrop-blur-sm text-white text-xs md:text-sm font-semibold py-2.5 px-5 md:py-3 md:px-6 rounded-none flex items-center gap-2 transition cursor-pointer tracking-wider">
                 <MapPin size={16} /> TEMUKAN TOKO KAMI
               </button>
-
               <button className="bg-white hover:bg-gray-100 text-gray-900 p-2.5 md:p-3 rounded-lg transition shadow-md cursor-pointer flex items-center justify-center">
                 <ArrowRight size={18} />
               </button>
@@ -395,16 +391,14 @@ const HomePage = () => {
         <div className="w-full grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
           <div>
             <img src="/assets/images/logo-cmerch.svg" alt="C-Merch" className="h-8 w-auto mb-4 object-contain" />
-            <p className="text-[11px] leading-relaxed text-gray-500">
-              Official Store Merchandise Resmi PT Kereta Api Indonesia (Persero).
-            </p>
+            <p className="text-[11px] leading-relaxed text-gray-500">Official Store Merchandise Resmi PT Kereta Api Indonesia (Persero).</p>
           </div>
           <div>
             <h5 className="font-bold text-gray-900 mb-3">BELANJA</h5>
             <ul className="space-y-2 text-gray-500">
-              <li><a href="#kategori" className="hover:underline">Kategori</a></li>
-              <li><a href="#terbaru" className="hover:underline">Produk Terbaru</a></li>
-              <li><a href="#bestseller" className="hover:underline">Best Seller</a></li>
+              <li><a href="/products" className="hover:underline">Kategori</a></li>
+              <li><a href="/products" className="hover:underline">Produk Terbaru</a></li>
+              <li><a href="/products" className="hover:underline">Best Seller</a></li>
             </ul>
           </div>
           <div>

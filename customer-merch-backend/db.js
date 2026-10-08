@@ -1,20 +1,20 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Menggunakan connectionString dari process.env.DATABASE_URL
 const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Pengecekan tes koneksi awal saat server di-start
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('❌ Gagal terhubung ke database PostgreSQL:', err.message);
+    console.error('❌ Gagal terhubung ke database PostgreSQL Supabase:', err.message);
   } else {
-    console.log('✅ Terhubung ke database PostgreSQL (merch_admin_db)');
+    console.log('✅ Berhasil terhubung ke database PostgreSQL (Supabase Cloud)!');
   }
 });
 

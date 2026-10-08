@@ -78,7 +78,6 @@ const ProductDetailPage = () => {
         headers: getAuthHeader()
       });
 
-      // Sesuai dengan respon backend: { cart: [...], summary: { total_items: X } }
       const totalCount = res.data.summary?.total_items || (res.data.cart || []).reduce((sum, item) => sum + item.quantity, 0);
       setCartCount(totalCount);
     } catch (error) {
@@ -121,7 +120,6 @@ const ProductDetailPage = () => {
           setCurrentPrice(Number(prodData?.price || 0));
         }
 
-        // Ambil jumlah keranjang awal
         fetchCartCount();
 
       } catch (error) {
@@ -161,7 +159,6 @@ const ProductDetailPage = () => {
     try {
       setIsAddingToCart(true);
 
-      // Payload sesuai dengan req.body di cartController.js (product_id, variant_id, quantity)
       const payload = {
         product_id: product.id,
         variant_id: selectedVariantId || null,
@@ -172,14 +169,12 @@ const ProductDetailPage = () => {
         headers: getAuthHeader()
       });
 
-      // Refresh Badge Jumlah Keranjang di Navigation Header
       await fetchCartCount();
-
       alert(res.data.message || "Berhasil ditambahkan ke keranjang!");
     } catch (error) {
       console.error("Gagal menambahkan ke keranjang DB:", error);
       if (error.response && error.response.status === 401) {
-        if (confirm("Silakan login terlebih dahulu untuk menambahkan produk ke keranjang. Ke halaman login sekarang?")) {
+        if (window.confirm("Silakan login terlebih dahulu untuk menambahkan produk ke keranjang. Ke halaman login sekarang?")) {
           navigate('/auth');
         }
       } else {
@@ -220,31 +215,31 @@ const ProductDetailPage = () => {
               onMouseEnter={() => setIsCategoryOpen(true)}
               onMouseLeave={() => setIsCategoryOpen(false)}
             >
-              <button className="flex items-center gap-1.5 text-gray-800 hover:text-red-600 font-bold">
+              <Link to="/products?segment=Anak-anak" className="flex items-center gap-1.5 text-gray-800 hover:text-red-600 font-bold">
                 Anak - Anak <ChevronDown size={16} />
-              </button>
+              </Link>
 
               {isCategoryOpen && (
                 <div className="absolute top-full left-0 w-[500px] bg-white border border-gray-200 shadow-xl rounded-2xl p-6 grid grid-cols-2 gap-6 text-left normal-case z-50">
                   <div>
                     <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Anak-Anak</h4>
                     <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#anak-kaos" className="hover:text-red-600">Pakaian & Kaos</a></li>
-                      <li><a href="#anak-topi" className="hover:text-red-600">Topi & Aksesoris</a></li>
+                      <li><Link to="/products?segment=Anak-anak&category=Pakaian" className="hover:text-red-600">Pakaian & Kaos</Link></li>
+                      <li><Link to="/products?segment=Anak-anak&category=Topi" className="hover:text-red-600">Topi & Aksesoris</Link></li>
                     </ul>
                   </div>
                   <div>
                     <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Dewasa</h4>
                     <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#dewasa-kaos" className="hover:text-red-600">T-Shirt & Outerwear</a></li>
-                      <li><a href="#dewasa-tas" className="hover:text-red-600">Tas & Pouch</a></li>
+                      <li><Link to="/products?segment=Dewasa&category=Pakaian" className="hover:text-red-600">T-Shirt & Outerwear</Link></li>
+                      <li><Link to="/products?segment=Dewasa&category=Tote%20Bag" className="hover:text-red-600">Tas & Tote Bag</Link></li>
                     </ul>
                   </div>
                 </div>
               )}
             </div>
 
-            <a href="#dewasa" className="hover:text-red-600">Dewasa</a>
+            <Link to="/products?segment=Dewasa" className="hover:text-red-600">Dewasa</Link>
             <Link to="/products" className="hover:text-red-600">Semua Produk</Link>
           </nav>
 
@@ -294,13 +289,12 @@ const ProductDetailPage = () => {
             />
           </div>
 
-          {/* Thumbnail Foto Tambahan */}
           <div className="flex gap-4">
             {[product?.image_url].filter(Boolean).map((img, idx) => (
               <button 
                 key={idx}
                 onClick={() => setSelectedImage(img)}
-                className={`w-24 h-24 bg-[#F3F4F6] rounded-lg p-2 border-2 transition overflow-hidden ${
+                className={`w-24 h-24 bg-[#F3F4F6] rounded-lg p-2 border-2 transition overflow-hidden cursor-pointer ${
                   selectedImage === img ? 'border-red-600' : 'border-transparent hover:border-gray-300'
                 }`}
               >
@@ -316,12 +310,10 @@ const ProductDetailPage = () => {
             <span className="text-red-600 font-bold text-xs uppercase tracking-wider block mb-1">C-Merch Official</span>
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{product?.name}</h1>
             
-            {/* HARGA DINAMIS MENYESUAIKAN VARIAN */}
             <p className="text-xl font-extrabold text-[#E5231B] mt-2 transition-all">
               {formatRupiah(currentPrice)}
             </p>
             
-            {/* KODE PRODUK DARI DATABASE */}
             <p className="text-xs text-gray-400 font-medium mt-1">
               Kode Produk : <span className="text-gray-700 font-bold">{product?.product_code || '-'}</span>
             </p>
@@ -329,7 +321,7 @@ const ProductDetailPage = () => {
 
           <hr className="border-gray-200" />
 
-          {/* PEMILIHAN VARIAN DARI DB */}
+          {/* PEMILIHAN VARIAN */}
           <div className="flex gap-12">
             
             {/* Pilihan Warna */}
@@ -380,7 +372,7 @@ const ProductDetailPage = () => {
 
           </div>
 
-          {/* Tombol Keranjang (POST DATABASE) & Wishlist */}
+          {/* Tombol Keranjang & Wishlist */}
           <div className="flex items-center gap-3 pt-2">
             <button 
               onClick={handleAddToCart}
@@ -406,9 +398,10 @@ const ProductDetailPage = () => {
 
           <hr className="border-gray-200 mt-2" />
 
-          {/* ACCORDION INFO PRODUK DARI DATABASE */}
+          {/* ACCORDION INFO PRODUK & UKURAN/MATERIAL DINAMIS DARI DATABASE */}
           <div className="flex flex-col divide-y divide-gray-200 text-sm">
             
+            {/* Informasi Produk */}
             <div className="py-3">
               <button 
                 onClick={() => setIsInfoOpen(!isInfoOpen)}
@@ -418,12 +411,13 @@ const ProductDetailPage = () => {
                 {isInfoOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
               {isInfoOpen && (
-                <p className="text-xs text-gray-600 leading-relaxed mt-2.5">
-                  {product?.description || `${product?.name} adalah koleksi merchandise resmi PT Kereta Api Indonesia (Persero) buatan bahan kualitas terbaik yang nyaman digunakan.`}
+                <p className="text-xs text-gray-600 leading-relaxed mt-2.5 whitespace-pre-line">
+                  {product?.product_info || product?.description || 'Belum ada informasi detail untuk produk ini.'}
                 </p>
               )}
             </div>
 
+            {/* Ukuran & Material */}
             <div className="py-3">
               <button 
                 onClick={() => setIsSizeOpen(!isSizeOpen)}
@@ -433,9 +427,8 @@ const ProductDetailPage = () => {
                 {isSizeOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
               {isSizeOpen && (
-                <div className="text-xs text-gray-600 space-y-1 mt-2.5">
-                  <p>• Material: Cotton Combed 30s / Premium Material</p>
-                  <p>• Sablon: Plastisol High Quality</p>
+                <div className="text-xs text-gray-600 space-y-1 mt-2.5 whitespace-pre-line">
+                  {product?.size_material || 'Belum ada spesifikasi ukuran dan material.'}
                 </div>
               )}
             </div>
@@ -444,7 +437,7 @@ const ProductDetailPage = () => {
 
           <hr className="border-gray-200" />
 
-          {/* RATING & REVIEWS DARI DATABASE */}
+          {/* RATING & REVIEWS */}
           <div>
             <h3 className="font-extrabold text-sm text-gray-900 uppercase tracking-wider mb-2">Rating & Reviews</h3>
             
@@ -460,7 +453,6 @@ const ProductDetailPage = () => {
               <span className="text-xs text-gray-400 font-medium">({reviews.length} reviews)</span>
             </div>
 
-            {/* Ringkasan 2 Ulasan Terbaru */}
             {reviews.length > 0 ? (
               <div className="space-y-4">
                 {reviews.slice(0, 2).map((rev, idx) => (
@@ -483,7 +475,6 @@ const ProductDetailPage = () => {
               <p className="text-xs text-gray-400 italic">Belum ada ulasan untuk produk ini.</p>
             )}
 
-            {/* Link Buka Side Drawer Review */}
             {reviews.length > 0 && (
               <button 
                 onClick={() => setIsReviewDrawerOpen(true)}

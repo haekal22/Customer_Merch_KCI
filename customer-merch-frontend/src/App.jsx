@@ -9,6 +9,7 @@ import WishlistPage from './pages/WishlistPage';
 import CheckoutPage from './pages/CheckoutPage';
 import PaymentPage from './pages/PaymentPage';
 import AccountPage from './pages/AccountPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/orders/:orderId" element={<OrderTrackingPage />} />
       </Routes>
     </Router>
   );

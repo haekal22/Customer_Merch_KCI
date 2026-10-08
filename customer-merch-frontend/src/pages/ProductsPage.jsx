@@ -78,7 +78,8 @@ const ProductsPage = () => {
           params.append('price_range', selectedPriceRange);
         }
         if (selectedSegment) {
-          params.append('segment', selectedSegment);
+          const segValue = selectedSegment === 'Anak - Anak' ? 'Anak-anak' : selectedSegment;
+          params.append('segment', segValue);
         }
         if (searchQuery) {
           params.append('search', searchQuery);
@@ -133,22 +134,22 @@ const ProductsPage = () => {
                   <div>
                     <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Anak-Anak</h4>
                     <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#anak-kaos" className="hover:text-red-600">Pakaian & Kaos</a></li>
-                      <li><a href="#anak-topi" className="hover:text-red-600">Topi & Aksesoris</a></li>
+                      <li><a href="/products?segment=Anak-anak&category=Pakaian" className="hover:text-red-600">Pakaian & Kaos</a></li>
+                      <li><a href="/products?segment=Anak-anak&category=Topi" className="hover:text-red-600">Topi & Aksesoris</a></li>
                     </ul>
                   </div>
                   <div>
                     <h4 className="font-bold text-base text-gray-900 mb-3 border-b pb-1">Kategori Dewasa</h4>
                     <ul className="space-y-2.5 text-sm font-normal text-gray-600">
-                      <li><a href="#dewasa-kaos" className="hover:text-red-600">T-Shirt & Outerwear</a></li>
-                      <li><a href="#dewasa-tas" className="hover:text-red-600">Tas & Pouch</a></li>
+                      <li><a href="/products?segment=Dewasa&category=Pakaian" className="hover:text-red-600">T-Shirt & Outerwear</a></li>
+                      <li><a href="/products?segment=Dewasa&category=Tote%20Bag" className="hover:text-red-600">Tas & Tote Bag</a></li>
                     </ul>
                   </div>
                 </div>
               )}
             </div>
 
-            <a href="#dewasa" className="hover:text-red-600">Dewasa</a>
+            <a href="/products?segment=Dewasa" className="hover:text-red-600">Dewasa</a>
             <a href="/products" className="text-red-600 border-b-2 border-red-600 pb-1">Semua Produk</a>
           </nav>
 
@@ -201,36 +202,40 @@ const ProductsPage = () => {
             {(selectedCategories.length > 0 || selectedPriceRange) && (
               <button 
                 onClick={() => { setSelectedCategories([]); setSelectedPriceRange(''); }} 
-                className="text-red-600 hover:underline text-xs font-bold"
+                className="text-red-600 hover:underline text-xs font-bold cursor-pointer"
               >
                 Reset
               </button>
             )}
           </div>
 
-          {/* Filter Kategori */}
+          {/* Filter Kategori Dinamis dari Database */}
           <div>
             <h4 className="font-bold text-xs uppercase text-gray-900 mb-4 tracking-wider">KATEGORI</h4>
             <div className="space-y-3.5 text-gray-700 font-medium text-sm">
-              {['Tote Bag', 'Gantungan Kunci', 'Topi', 'Tumbler', 'Mewarnai', 'Pakaian & Kaos'].map((cat) => {
-                const countObj = categoryCounts.find(c => c.category?.toLowerCase() === cat.toLowerCase());
-                const count = countObj ? countObj.total : 0;
+              {categoryCounts.length === 0 ? (
+                <p className="text-xs text-gray-400">Memuat kategori...</p>
+              ) : (
+                categoryCounts.map((item) => {
+                  const catName = item.category;
+                  const count = item.total;
 
-                return (
-                  <label key={cat} className="flex items-center justify-between cursor-pointer hover:text-red-600 transition">
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedCategories.includes(cat)}
-                        onChange={() => handleCategoryChange(cat)}
-                        className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
-                      />
-                      <span className="text-sm font-semibold">{cat}</span>
-                    </div>
-                    <span className="text-gray-400 text-xs">({count})</span>
-                  </label>
-                );
-              })}
+                  return (
+                    <label key={catName} className="flex items-center justify-between cursor-pointer hover:text-red-600 transition">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedCategories.includes(catName)}
+                          onChange={() => handleCategoryChange(catName)}
+                          className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
+                        />
+                        <span className="text-sm font-semibold">{catName}</span>
+                      </div>
+                      <span className="text-gray-400 text-xs">({count})</span>
+                    </label>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -262,7 +267,7 @@ const ProductsPage = () => {
         {/* CATALOG AREA (KANAN) */}
         <main className="flex-1">
           
-          {/* TOP BAR FILTER DENGAN GARIS MERAH SESUAI ACUAN */}
+          {/* TOP BAR FILTER */}
           <div className="flex justify-between items-center pb-3 border-b-2 border-[#E5231B] mb-6">
             
             {/* Total Produk Ditemukan */}
@@ -307,7 +312,7 @@ const ProductsPage = () => {
             </div>
           </div>
 
-          {/* GRID KATALOG PRODUK (3 CARD PER BARIS DENGAN HOVER DETAIL BUTTON) */}
+          {/* GRID KATALOG PRODUK */}
           {loading ? (
             <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
               <Loader2 className="animate-spin" size={24} />
@@ -333,7 +338,7 @@ const ProductsPage = () => {
                     {/* Container Gambar Produk */}
                     <div className="relative aspect-square bg-[#F3F4F6] rounded-md p-4 flex items-center justify-center overflow-hidden">
                       
-                      {/* Rating Badge ⭐ 5.0 */}
+                      {/* Rating Badge */}
                       <div className="absolute top-3 left-3 bg-gray-200/80 backdrop-blur-sm px-2 py-0.5 rounded flex items-center gap-1 text-[11px] font-bold text-gray-700 z-10">
                         <Star size={11} className="fill-amber-400 text-amber-400" />
                         <span>{Number(p.average_rating || 5.0).toFixed(1)}</span>
@@ -357,9 +362,9 @@ const ProductsPage = () => {
                         className="w-full h-full object-contain transition duration-300 group-hover:scale-105" 
                       />
 
-                      {/* HOVER overlay: Tombol Merah "Lihat Detail Produk" di bagian bawah gambar */}
+                      {/* HOVER Overlay Tombol "Lihat Detail Produk" */}
                       <div className="absolute bottom-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                        <button className="w-full bg-[#E5231B] text-white py-2.5 text-xs font-bold uppercase tracking-wider text-center block shadow-md">
+                        <button className="w-full bg-[#E5231B] text-white py-2.5 text-xs font-bold uppercase tracking-wider text-center block shadow-md cursor-pointer">
                           Lihat Detail Produk
                         </button>
                       </div>
@@ -400,9 +405,9 @@ const ProductsPage = () => {
           <div>
             <h5 className="font-bold text-gray-900 mb-3">BELANJA</h5>
             <ul className="space-y-2 text-gray-500">
-              <li><a href="#kategori" className="hover:underline">Kategori</a></li>
-              <li><a href="#terbaru" className="hover:underline">Produk Terbaru</a></li>
-              <li><a href="#bestseller" className="hover:underline">Best Seller</a></li>
+              <li><a href="/products" className="hover:underline">Kategori</a></li>
+              <li><a href="/products?sort=latest" className="hover:underline">Produk Terbaru</a></li>
+              <li><a href="/products" className="hover:underline">Best Seller</a></li>
             </ul>
           </div>
           <div>

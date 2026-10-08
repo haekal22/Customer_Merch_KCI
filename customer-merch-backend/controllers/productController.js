@@ -1,7 +1,6 @@
 const db = require('../db');
 
 // 1. GET PRODUK BERANDA (Produk Terbaru & Best Seller)
-// 1. GET PRODUK BERANDA (Dengan Rating, Range Harga, & Hitung Varian Warna)
 exports.getHomeProducts = async (req, res) => {
   try {
     // Query Utama Produk Terbaru
@@ -10,9 +9,12 @@ exports.getHomeProducts = async (req, res) => {
         p.id, 
         p.name, 
         p.category, 
+        p.target_group,
         p.price, 
         p.image_url, 
         p.product_code, 
+        p.product_info,
+        p.size_material,
         p.created_at,
         MIN(pv.price) as min_price,
         MAX(pv.price) as max_price,
@@ -32,9 +34,12 @@ exports.getHomeProducts = async (req, res) => {
         p.id, 
         p.name, 
         p.category, 
+        p.target_group,
         p.price, 
         p.image_url, 
         p.product_code,
+        p.product_info,
+        p.size_material,
         MIN(pv.price) as min_price,
         MAX(pv.price) as max_price,
         COUNT(DISTINCT NULLIF(TRIM(pv.color), '')) as color_variant_count,
@@ -61,16 +66,14 @@ exports.getHomeProducts = async (req, res) => {
     return res.status(500).json({ message: 'Gagal memuat produk beranda.' });
   }
 };
-// 2. GET DAFTAR PRODUK KATALOG (Dengan Filter Kategori & Pencarian)
 
-
-// GET KATALOG PRODUK LENGKAP DENGAN FILTER & COUNT
+// 2. GET DAFTAR PRODUK KATALOG (Dengan Filter Kategori, Target Segmen, Harga & Pencarian)
 exports.getAllProducts = async (req, res) => {
   try {
     const { 
-      category,     // string atau array (misal: 'Tote Bag,Topi')
+      category,     // string atau array dipisah koma (misal: 'Tote Bag,Pakaian')
       price_range,  // 'under_50k', '50k_100k', 'above_100k'
-      segment,      // 'Anak - Anak', 'Dewasa'
+      segment,      // 'Anak-anak', 'Dewasa', atau 'Semua'
       search,       // kata kunci pencarian
       sort          // 'latest', 'price_asc', 'price_desc'
     } = req.query;
@@ -81,12 +84,17 @@ exports.getAllProducts = async (req, res) => {
         p.id, 
         p.name, 
         p.category, 
+        p.target_group,
         p.price, 
         p.image_url, 
         p.product_code,
+        p.product_info,
+        p.size_material,
         p.created_at,
         COUNT(pv.id) as variant_count,
-        COALESCE(SUM(pv.stock), p.stock, 0) as total_stock
+        COALESCE(SUM(pv.stock), p.stock, 0) as total_stock,
+        MIN(pv.price) as min_price,
+        MAX(pv.price) as max_price
       FROM products p
       LEFT JOIN product_variants pv ON p.id = pv.product_id
       WHERE 1=1
@@ -112,15 +120,15 @@ exports.getAllProducts = async (req, res) => {
       }
     }
 
-    // Filter Target Segmen (Tab: Anak-Anak / Dewasa / Semua)
+    // Filter Target Segmen (Dewasa / Anak-anak / Semua)
     if (segment && segment.toLowerCase() !== 'semua') {
-      queryParams.push(`%${segment.toLowerCase()}%`);
-      query += ` AND (LOWER(p.name) LIKE $${queryParams.length} OR LOWER(p.category) LIKE $${queryParams.length})`;
+      queryParams.push(segment.trim());
+      query += ` AND p.target_group ILIKE $${queryParams.length}`;
     }
 
     // Filter Kata Kunci Search
-    if (search) {
-      queryParams.push(`%${search.toLowerCase()}%`);
+    if (search && search.trim() !== '') {
+      queryParams.push(`%${search.trim().toLowerCase()}%`);
       query += ` AND (LOWER(p.name) LIKE $${queryParams.length} OR LOWER(p.product_code) LIKE $${queryParams.length})`;
     }
 
@@ -164,7 +172,7 @@ exports.getProductById = async (req, res) => {
 
   try {
     const productQuery = `SELECT * FROM products WHERE id = $1;`;
-    const variantsQuery = `SELECT * FROM product_variants WHERE product_id = $1;`;
+    const variantsQuery = `SELECT * FROM product_variants WHERE product_id = $1 ORDER BY id ASC;`;
 
     const productRes = await db.query(productQuery, [id]);
     if (productRes.rows.length === 0) {
@@ -200,16 +208,15 @@ exports.getStores = async (req, res) => {
   }
 };
 
-
-// 1. GET DETAIL PRODUK LENGKAP (Termasuk Varian & Produk Terkait)
+// 5. GET DETAIL PRODUK LENGKAP (Termasuk Varian, Review, & Produk Terkait)
 exports.getProductDetail = async (req, res) => {
   const { id } = req.params;
 
   try {
     // A. Query Data Utama Produk
     const productQuery = `
-      SELECT id, name, category, price, product_code, description, 
-             size_material_info, image_url, created_at
+      SELECT id, name, category, target_group, price, product_code, 
+             product_info, size_material, image_url, created_at
       FROM products 
       WHERE id = $1;
     `;
@@ -221,16 +228,16 @@ exports.getProductDetail = async (req, res) => {
 
     const product = productRes.rows[0];
 
-    // B. Query Daftar Varian (Warna, Ukuran, Stok, Gambar Spesifik Varian)
+    // B. Query Daftar Varian (Disesuaikan dengan kolom color & size)
     const variantsQuery = `
-      SELECT id, color_name, color_hex, size, stock, image_url
+      SELECT id, color, size, stock, price, image_url
       FROM product_variants 
       WHERE product_id = $1
-      ORDER BY color_name ASC, size ASC;
+      ORDER BY color ASC, size ASC;
     `;
     const variantsRes = await db.query(variantsQuery, [id]);
 
-    // C. Query Summary Rating & 2 Ulasan Terbaru untuk Preview Page
+    // C. Query Summary Rating & Ulasan Terbaru
     const reviewsSummaryQuery = `
       SELECT 
         COALESCE(AVG(rating), 5.0) as average_rating,
@@ -249,9 +256,9 @@ exports.getProductDetail = async (req, res) => {
     `;
     const latestReviewsRes = await db.query(latestReviewsQuery, [id]);
 
-    // D. Query Produk Terkait (Kategori / Segmen Sama, Kecuali Produk Ini)
+    // D. Query Produk Terkait (Kategori Sama)
     const relatedProductsQuery = `
-      SELECT p.id, p.name, p.category, p.price, p.image_url,
+      SELECT p.id, p.name, p.category, p.target_group, p.price, p.image_url,
              COUNT(pv.id) as variant_count
       FROM products p
       LEFT JOIN product_variants pv ON p.id = pv.product_id
@@ -265,8 +272,8 @@ exports.getProductDetail = async (req, res) => {
       product,
       variants: variantsRes.rows,
       rating_summary: {
-        average: parseFloat(reviewsSummaryRes.rows[0].average_rating).toFixed(1),
-        total: parseInt(reviewsSummaryRes.rows[0].total_reviews)
+        average: parseFloat(reviewsSummaryRes.rows[0]?.average_rating || 5.0).toFixed(1),
+        total: parseInt(reviewsSummaryRes.rows[0]?.total_reviews || 0)
       },
       preview_reviews: latestReviewsRes.rows,
       related_products: relatedRes.rows
@@ -278,7 +285,7 @@ exports.getProductDetail = async (req, res) => {
   }
 };
 
-// 2. GET SEMUA ULASAN PRODUK (Untuk Popup / Modal "Lihat Semua Review")
+// 6. GET SEMUA ULASAN PRODUK
 exports.getProductReviews = async (req, res) => {
   const { id } = req.params;
 
